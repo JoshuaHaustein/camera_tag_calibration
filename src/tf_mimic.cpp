@@ -19,14 +19,19 @@ int main(int argc, char *argv[]){
 	ros::NodeHandle n("~");
 
 	std::string base_frame, end_frame, detected_frame;
+	bool invert_transform;
 	//read names of base frame and end frame from parameters
 	n.param<std::string>("base_frame", base_frame, "world_tag");
 	n.param<std::string>("end_frame", end_frame, "kinect2_link");
 	n.param<std::string>("detected_frame", detected_frame, "world_tag2");
+	n.param<bool>("inverted_transform", invert_transform, false);
 
-	ROS_INFO("publishing transform between %s and %s", base_frame.c_str(), end_frame.c_str());
-
-	std::string path=ros::package::getPath("camera_tag_calibration");
+	if(invert_transform){
+		ROS_INFO("publishing transform between %s and %s", end_frame.c_str(), base_frame.c_str());
+	}
+	else{
+		ROS_INFO("publishing transform between %s and %s", base_frame.c_str(), end_frame.c_str());
+	}
 
 	tf::TransformBroadcaster br;
 	tf::TransformListener listener;
@@ -35,22 +40,47 @@ int main(int argc, char *argv[]){
 	//read the transformation 
 	tf::StampedTransform transform;
     try{
-    	listener.waitForTransform(detected_frame, end_frame, ros::Time::now(), ros::Duration(3.0));
-		listener.lookupTransform(detected_frame, end_frame, ros::Time(0), transform);
+    	std::cout<<"waiting for transform"<<std::endl;
+    	if(invert_transform){
+    		listener.waitForTransform(end_frame, detected_frame, ros::Time::now(), ros::Duration(10.0));
+			listener.lookupTransform(end_frame, detected_frame, ros::Time(0), transform);
+    	}
+    	else{
+    		listener.waitForTransform(detected_frame, end_frame, ros::Time::now(), ros::Duration(10.0));
+			listener.lookupTransform(detected_frame, end_frame, ros::Time(0), transform);
+		}
+		std::cout<<"---- READ: "<<transform.getOrigin().x()<<" "<<transform.getOrigin().y()<<" "<<transform.getOrigin().z()<<std::endl;
+	    std::cout<<transform.getRotation().x()<<" "<<transform.getRotation().y()<<" "<<transform.getRotation().z()<<" "<<transform.getRotation().w()<<std::endl;
     }
     catch (tf::TransformException ex){
     	ROS_ERROR("%s",ex.what());
+    	if(invert_transform){
+    		listener.waitForTransform(end_frame, base_frame, ros::Time::now(), ros::Duration(10.0));
+			listener.lookupTransform(end_frame, base_frame, ros::Time(0), transform);
+    	}
+    	else{
+    		listener.waitForTransform(base_frame, end_frame, ros::Time::now(), ros::Duration(10.0));
+			listener.lookupTransform(base_frame, end_frame, ros::Time(0), transform);
+    	}
     	ros::Duration(1.0).sleep();
     }
 	
 
-	tf::StampedTransform transform_bk;
+	tf::StampedTransform transform_bk=transform;
 	
 	
 	while(ros::ok()){
-		tf::StampedTransform transform;
 	    try{
-			listener.lookupTransform(detected_frame, end_frame, ros::Time(0), transform);
+	    	if(invert_transform){
+	    		listener.waitForTransform(end_frame, detected_frame, ros::Time::now(), ros::Duration(3.0));
+				listener.lookupTransform(end_frame, detected_frame, ros::Time(0), transform);
+	    	}
+	    	else{
+	    		listener.waitForTransform(detected_frame, end_frame, ros::Time::now(), ros::Duration(3.0));
+				listener.lookupTransform(detected_frame, end_frame, ros::Time(0), transform);
+			}
+			std::cout<<"---- READ: "<<transform.getOrigin().x()<<" "<<transform.getOrigin().y()<<" "<<transform.getOrigin().z()<<std::endl;
+	    	std::cout<<transform.getRotation().x()<<" "<<transform.getRotation().y()<<" "<<transform.getRotation().z()<<" "<<transform.getRotation().w()<<std::endl;
 	    }
 	    catch (tf::TransformException ex){
 	    	ROS_ERROR("%s",ex.what());
@@ -58,7 +88,14 @@ int main(int argc, char *argv[]){
 	    	transform = transform_bk;
 	    }
 	    transform_bk = transform;
-		br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), base_frame, end_frame));
+	    std::cout<<"---- SENDING: "<<transform.getOrigin().x()<<" "<<transform.getOrigin().y()<<" "<<transform.getOrigin().z()<<std::endl;
+	    std::cout<<transform.getRotation().x()<<" "<<transform.getRotation().y()<<" "<<transform.getRotation().z()<<" "<<transform.getRotation().w()<<std::endl;
+		if(invert_transform){
+	    	br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), end_frame, base_frame));
+	    }
+	    else{
+			br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), base_frame, end_frame));
+		}
 		r.sleep();
 	}
 
