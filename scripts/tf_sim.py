@@ -6,9 +6,9 @@ import tf
 if __name__ == '__main__':
     rospy.init_node("tf_mimic")
 
-    source_frame = rospy.get_param('source_frame', 'world')
-    child_frame = rospy.get_param('child_frame', 'marker')
-    sim_child_frame = rospy.get_param('sim_child_frame', 'sim_marker')
+    source_frame = rospy.get_param('~source_frame', 'world')
+    child_frame = rospy.get_param('~child_frame', 'marker')
+    sim_child_frame = rospy.get_param('~sim_child_frame', 'sim_marker')
 
     rate = rospy.Rate(50)
 
@@ -19,14 +19,13 @@ if __name__ == '__main__':
 
 
     while not rospy.is_shutdown():
-        if l.canTransform(source_frame, child_frame, rospy.Time.now()):
-            try:
-                (trans,rot) = l.lookupTransform(source_frame, child_frame, rospy.Time(0))
-                pos = trans
-                orient = rot
-            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-                trans = pos
-                rot = orient
+        try:
+            (trans,rot) = l.lookupTransform(source_frame, child_frame, rospy.Time(0))
+            pos = trans
+            orient = rot
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            trans = pos
+            rot = orient
 
         b.sendTransform(pos, orient, rospy.Time.now(), sim_child_frame, source_frame,)
 
