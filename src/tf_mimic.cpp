@@ -39,37 +39,32 @@ int main(int argc, char *argv[]){
 
 	//read the transformation 
 	tf::StampedTransform transform;
-    try{
-    	std::cout<<"waiting for transform"<<std::endl;
-    	if(invert_transform){
-    		listener.waitForTransform(end_frame, detected_frame, ros::Time::now(), ros::Duration(10.0));
-			listener.lookupTransform(end_frame, detected_frame, ros::Time(0), transform);
-    	}
-    	else{
-    		listener.waitForTransform(detected_frame, end_frame, ros::Time::now(), ros::Duration(10.0));
-			listener.lookupTransform(detected_frame, end_frame, ros::Time(0), transform);
+	bool observed_tf = false;
+	while (ros::ok() and !observed_tf) {
+		try{
+			ROS_INFO_STREAM("Waiting for transform from " << end_frame << " to " << detected_frame);
+			if(invert_transform){
+				listener.waitForTransform(end_frame, detected_frame, ros::Time::now(), ros::Duration(10.0));
+				listener.lookupTransform(end_frame, detected_frame, ros::Time(0), transform);
+			}
+			else{
+				listener.waitForTransform(detected_frame, end_frame, ros::Time::now(), ros::Duration(10.0));
+				listener.lookupTransform(detected_frame, end_frame, ros::Time(0), transform);
+			}
+			std::cout<<"---- READ: "<<transform.getOrigin().x()<<" "<<transform.getOrigin().y()<<" "<<transform.getOrigin().z()<<std::endl;
+			std::cout<<transform.getRotation().x()<<" "<<transform.getRotation().y()<<" "<<transform.getRotation().z()<<" "<<transform.getRotation().w()<<std::endl;
+			observed_tf = true;
 		}
-		std::cout<<"---- READ: "<<transform.getOrigin().x()<<" "<<transform.getOrigin().y()<<" "<<transform.getOrigin().z()<<std::endl;
-	    std::cout<<transform.getRotation().x()<<" "<<transform.getRotation().y()<<" "<<transform.getRotation().z()<<" "<<transform.getRotation().w()<<std::endl;
-    }
-    catch (tf::TransformException ex){
-    	ROS_ERROR("%s",ex.what());
-    	if(invert_transform){
-    		listener.waitForTransform(end_frame, base_frame, ros::Time::now(), ros::Duration(10.0));
-			listener.lookupTransform(end_frame, base_frame, ros::Time(0), transform);
-    	}
-    	else{
-    		listener.waitForTransform(base_frame, end_frame, ros::Time::now(), ros::Duration(10.0));
-			listener.lookupTransform(base_frame, end_frame, ros::Time(0), transform);
-    	}
-    	ros::Duration(1.0).sleep();
-    }
+		catch (tf::TransformException ex){
+			ROS_ERROR("Failed to retrieve tf to mimic. Error: %s",ex.what());
+			ros::Duration(1.0).sleep();
+		}
+	}
 	
 
 	tf::StampedTransform transform_bk=transform;
-	
-	
-	while(ros::ok()){
+	while(ros::ok() and observed_tf){
+		std::cout << observed_tf << std::endl;
 	    try{
 	    	if(invert_transform){
 	    		listener.waitForTransform(end_frame, detected_frame, ros::Time::now(), ros::Duration(3.0));
